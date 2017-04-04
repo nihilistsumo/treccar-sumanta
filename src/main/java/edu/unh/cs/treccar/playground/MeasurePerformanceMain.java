@@ -18,9 +18,12 @@ public class MeasurePerformanceMain {
 		// TODO Auto-generated method stub
 		MeasurePerformance mp = new MeasurePerformance(args[0], args[1], args[2]);
 		try {
+			BaseClusterer base = new BaseClusterer(args[2]);
 			PerformanceMetrics pm = new PerformanceMetrics(mp.getGroundTruth(), mp.getCandidateAssign());
 			System.out.println(pm.analyzeBasic());
 			System.out.println(pm.calculateRandIndex());
+			System.out.println(base.getClusters(100));
+			System.out.println(pm.calculateRandIndex(base.getClusters(100)));
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

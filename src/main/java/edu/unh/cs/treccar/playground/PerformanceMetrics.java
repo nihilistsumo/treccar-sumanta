@@ -22,10 +22,10 @@ public class PerformanceMetrics {
 		ArrayList<String> correctParaIds = new ArrayList<String>();
 		gtSectionPaths = this.groundTruth.keySet();
 		for(String sectionPath : gtSectionPaths){
-			System.out.println("Current ground truth sectionPath: "+sectionPath);
+			//System.out.println("Current ground truth sectionPath: "+sectionPath);
 			correctParaIds = this.groundTruth.get(sectionPath);
 			ArrayList<String> candParaIds = new ArrayList<String>();
-			System.out.println("Correct paraIDs corresponding to current section: "+correctParaIds);
+			//System.out.println("Correct paraIDs corresponding to current section: "+correctParaIds);
 			
 			try {
 				ArrayList<Data.Paragraph> candParaList = new ArrayList<Data.Paragraph>();
@@ -35,6 +35,7 @@ public class PerformanceMetrics {
 						candParaIds.add(candPara.getParaId());
 					}
 				}
+				System.out.println("sectionPath: "+sectionPath+" -> "+candParaIds);
 			} catch (NullPointerException e) {
 				// TODO Auto-generated catch block
 				System.out.println("sectionPath -> section id from ground truth: "+sectionPath);
@@ -53,6 +54,19 @@ public class PerformanceMetrics {
 		return resultString;
 	}
 	public String calculateRandIndex(){
+		HashMap<AssignParagraphs.SectionPathID, ArrayList<Data.Paragraph>> candidate = this.candidateAssign;
+		HashMap<String, ArrayList<String>> candidateClusters = new HashMap<String, ArrayList<String>>();
+		for(AssignParagraphs.SectionPathID secPathID : candidate.keySet()){
+			String clusterLabel = secPathID.getSectionPathID();
+			ArrayList<String> cluster = new ArrayList<String>();
+			for(Data.Paragraph p : candidate.get(secPathID)){
+				cluster.add(p.getParaId());
+			}
+			candidateClusters.put(clusterLabel, cluster);
+		}
+		String resultString = calculateRandIndex(candidateClusters);
+		return resultString;
+		/*
 		String resultString = "";
 		HashMap<String, ArrayList<String>> correct = this.groundTruth;
 		HashMap<AssignParagraphs.SectionPathID, ArrayList<Data.Paragraph>> candidate = this.candidateAssign;
@@ -82,6 +96,46 @@ public class PerformanceMetrics {
 				contingencyMatrix[i][j] = matchCount;
 			}
 		}
+		printContingencyMatrix(contingencyMatrix);
+		if((new Double(this.computeRand(contingencyMatrix))).isNaN())
+			resultString = "Adjusted Rand index could not be computed!";
+		else
+			resultString = "Calculated RAND index: "+this.computeRand(contingencyMatrix);
+		return resultString;
+		*/
+	}
+	public String calculateRandIndex(HashMap<String, ArrayList<String>> candidateClusters){
+		//candidateClusters will be map between cluster labels and cluster of para IDs
+		String resultString = "";
+		HashMap<String, ArrayList<String>> correct = this.groundTruth;
+		//HashMap<AssignParagraphs.SectionPathID, ArrayList<Data.Paragraph>> candidate = this.candidateAssign;
+		String[] correctSections = new String[correct.size()];
+		String[] candLabels = new String[candidateClusters.size()];
+		correct.keySet().toArray(correctSections);
+		candidateClusters.keySet().toArray(candLabels);
+		
+		int[][] contingencyMatrix = new int[correct.size()][candidateClusters.size()];
+		double randIndex = 0.0;
+		ArrayList<String> correctParas = new ArrayList<String>();
+		ArrayList<String> candParas = new ArrayList<String>();
+		for(int i=0; i<correct.size(); i++){
+			for(int j=0; j<candidateClusters.size(); j++){
+				int matchCount = 0;
+				correctParas = correct.get(correctSections[i]);
+				candParas = candidateClusters.get(candLabels[j]);
+				if(correctParas == null){
+					System.out.println("We have null in correctParas!");
+				} else if(candParas != null){
+					for(String candPara : candParas){
+						if(correctParas.contains(candPara)){
+							matchCount++;
+						}
+					}
+				}
+				contingencyMatrix[i][j] = matchCount;
+			}
+		}
+		//printContingencyMatrix(contingencyMatrix);
 		if((new Double(this.computeRand(contingencyMatrix))).isNaN())
 			resultString = "Adjusted Rand index could not be computed!";
 		else
@@ -92,7 +146,7 @@ public class PerformanceMetrics {
 		double score = 0.0;
 		int sumnij=0, sumni=0, sumnj=0, nC2=0, nrow=0, ncol=0;		
 		ncol = contMat[0].length;
-		nrow = contMat.length/ncol;
+		nrow = contMat.length;
 		int[] njvals = new int[ncol];
 		nC2 = this.nC2(ncol+nrow);
 		for(int i=0; i<nrow; i++){
@@ -131,6 +185,16 @@ public class PerformanceMetrics {
 		else if(n==2) return 1;
 		else{
 			return n*(n-1)/2;
+		}
+	}
+	private void printContingencyMatrix(int[][] contingency){
+		int colNum = contingency[0].length;
+		int rowNum = contingency.length;
+		for(int i=0; i<rowNum; i++){
+			for(int j=0; j<colNum; j++){
+				System.out.print(contingency[i][j]+" ");
+			}
+			System.out.println();
 		}
 	}
 }

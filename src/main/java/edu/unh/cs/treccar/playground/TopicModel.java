@@ -39,12 +39,15 @@ public class TopicModel {
 		this.paraList = paraList;
 	}
 	public HashMap<AssignParagraphs.SectionPathID, ArrayList<Data.Paragraph>> modelTopics(){
-		HashMap<AssignParagraphs.SectionPathID, Integer> secToTopicMap = new HashMap<AssignParagraphs.SectionPathID, Integer>();
-		InstanceList iList = new InstanceList(this.buildPipe());
+		HashMap<AssignParagraphs.SectionPathID, double[]> secToTopicMap = new HashMap<AssignParagraphs.SectionPathID, double[]>();
+		HashMap<Data.Paragraph, double[]> paraToTopicMap = new HashMap<Data.Paragraph, double[]>();
+		InstanceList iList = new InstanceList(TopicModel.buildPipe());
 		ArrayList<Instance> rawInstanceList = new ArrayList<Instance>();
+		ArrayList<Data.Paragraph> listOfParagraphs = new ArrayList<Data.Paragraph>();
 		for(Data.Paragraph para : this.paraList){
 			Instance instance = new Instance(para.getTextOnly(), "", para.getParaId(), para.getTextOnly());
 			rawInstanceList.add(instance);
+			listOfParagraphs.add(para);
 		}
 		iList.addThruPipe(rawInstanceList.iterator());
 		int numTopics = 100;
@@ -54,38 +57,6 @@ public class TopicModel {
 		try {
 			model.estimate();
 			
-			Alphabet dataAlphabet = iList.getDataAlphabet();
-	        
-	        FeatureSequence tokens = (FeatureSequence) model.getData().get(0).instance.getData();
-	        LabelSequence topics = model.getData().get(0).topicSequence;
-	        
-	        Formatter out = new Formatter(new StringBuilder(), Locale.US);
-	        for (int position = 0; position < tokens.getLength(); position++) {
-	            out.format("%s-%d ", dataAlphabet.lookupObject(tokens.getIndexAtPosition(position)), topics.getIndexAtPosition(position));
-	        }
-	        System.out.println(out);
-	        
-	        // Estimate the topic distribution of the first instance, 
-	        //  given the current Gibbs state.
-	        double[] topicDistribution = model.getTopicProbabilities(0);
-
-	        // Get an array of sorted sets of word ID/count pairs
-	        ArrayList<TreeSet<IDSorter>> topicSortedWords = model.getSortedWords();
-	        
-	        // Show top 5 words in topics with proportions for the first document
-	        for (int topic = 0; topic < numTopics; topic++) {
-	            Iterator<IDSorter> iterator = topicSortedWords.get(topic).iterator();
-	            
-	            out = new Formatter(new StringBuilder(), Locale.US);
-	            out.format("%d\t%.3f\t", topic, topicDistribution[topic]);
-	            int rank = 0;
-	            while (iterator.hasNext() && rank < 5) {
-	                IDSorter idCountPair = iterator.next();
-	                out.format("%s (%.0f) ", dataAlphabet.lookupObject(idCountPair.getID()), idCountPair.getWeight());
-	                rank++;
-	            }
-	            System.out.println(out);
-	        }
 	        //Infer topics of section headings
 	        InstanceList sectionInstances = new InstanceList(iList.getPipe());
 	        TopicInferencer inferencer = model.getInferencer();
@@ -95,30 +66,83 @@ public class TopicModel {
 	        for(int i=0; i<sectionInstances.size(); i++){
 	        	//get topic dist of current instance
 	        	double[] topicDist = inferencer.getSampledDistribution(sectionInstances.get(i), 10, 1, 5);
-	        	//get index of highest topic
-	        	int indexHighest = 0;
-	        	double maxProb = 0.0;
-	        	for(int j=1; j<topicDist.length; j++){
-	        		if(topicDist[j]>maxProb){
-	        			indexHighest = j;
-	        			maxProb = topicDist[j];
-	        		}
-	        	}
 	        	//get sectionpathid object from sectionList using instance name
 	        	//map it with the highest topic index
 	        	for(AssignParagraphs.SectionPathID secID : this.sectionList){
-	        		if(secID.getSectionPathID().equalsIgnoreCase(sectionInstances.get(i).getName().toString())){
-	        			secToTopicMap.put(secID, indexHighest);
+	        		String candSecId = secID.getSectionPathID();
+	        		String instanceSecId = sectionInstances.get(i).getName().toString();
+	        		if(candSecId.equals(instanceSecId)){
+	        			secToTopicMap.put(secID, topicDist);
+	        			break;
 	        		}
 	        	}
 	        }
+	        for(int i=0; i<iList.size(); i++){
+	        	double[] topicDistPara = model.getTopicProbabilities(i);
+	        	/*
+	        	int indexHighestPara = 0;
+	        	double maxProbPara = 0.0;
+	        	for(int j=1; j<topicDistPara.length; j++){
+	        		if(topicDistPara[j]>maxProbPara){
+	        			indexHighestPara = j;
+	        			maxProbPara = topicDistPara[j];
+	        		}
+	        	}
+	        	*/
+	        	for(Data.Paragraph p : listOfParagraphs){
+	        		String candPId = p.getParaId();
+	        		String instancePId = iList.get(i).getName().toString();
+	        		if(candPId.equals(instancePId)){
+	        			paraToTopicMap.put(p, topicDistPara);
+	        			break;
+	        		}
+	        	}
+	        }
+	        prepareCandidate(secToTopicMap, paraToTopicMap);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return this.candidate;
 	}
-	public Pipe buildPipe(){
+	private void prepareCandidate(HashMap<AssignParagraphs.SectionPathID, double[]> secTopic, HashMap<Data.Paragraph, double[]> paraTopic){
+		HashMap<AssignParagraphs.SectionPathID, ArrayList<Data.Paragraph>> cand = new HashMap<AssignParagraphs.SectionPathID, ArrayList<Data.Paragraph>>();
+		for(Data.Paragraph para : paraTopic.keySet()){
+			double[] paraTopicDist = paraTopic.get(para);
+			AssignParagraphs.SectionPathID bestSecID = (AssignParagraphs.SectionPathID)secTopic.keySet().toArray()[0];
+			double minKLdiv = 99999.0;
+			for(AssignParagraphs.SectionPathID sec : secTopic.keySet()){
+				double currentKLdiv = getKLdiv(paraTopic.get(para), secTopic.get(sec));
+				if(minKLdiv>currentKLdiv){
+					minKLdiv=currentKLdiv;
+					bestSecID = sec;
+				}
+			}
+			//map bestSecID with para
+			if(cand.containsKey(bestSecID)){
+				cand.get(bestSecID).add(para);
+			} else{
+				ArrayList<Data.Paragraph> currentParaList = new ArrayList<Data.Paragraph>();
+				currentParaList.add(para);
+				cand.put(bestSecID, currentParaList);
+			}
+		}
+		this.candidate = cand;
+	}
+	public HashMap<AssignParagraphs.SectionPathID, ArrayList<Data.Paragraph>> getCandidate() {
+		return this.candidate;
+	}
+	private double getKLdiv(double[] p, double[] q){
+		double result = 0;
+		for(int i=0; i<p.length; i++){
+			if(q[i]<0.0000001 || p[i]<0.0000001){
+				continue;
+			}
+			result+=p[i]*Math.log(p[i]/q[i]);
+		}
+		return result;
+	}
+	public static Pipe buildPipe(){
 		ArrayList pipeList = new ArrayList();
 
         // Read data from File objects
@@ -157,7 +181,7 @@ public class TopicModel {
         //pipeList.add(new FeatureSequence2FeatureVector());
         
         // Print out the features and the label
-        pipeList.add(new PrintInputAndTarget());
+        //pipeList.add(new PrintInputAndTarget());
         
         return (new SerialPipes(pipeList));
 	}

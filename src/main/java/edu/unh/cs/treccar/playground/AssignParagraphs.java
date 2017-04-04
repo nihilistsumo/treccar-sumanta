@@ -59,6 +59,7 @@ public class AssignParagraphs {
 			
 			//*** This part will be replaced by clustering/topic modeling etc. ***//
 			//*** sectonList, paraList ---> candidate                          ***//
+			/*
 			Random rand = new Random();
 			AssignParagraphs.SectionPathID currentSection;
 			for(Data.Paragraph para : paraList){
@@ -71,13 +72,16 @@ public class AssignParagraphs {
 					candidate.put(currentSection, currentParaList);
 				}	
 			}
+			*/
 			//*** ############################################################ ***//
+			/*
 			FileInputStream pStream = new FileInputStream(new File(paraPath));
 			Iterable<Data.Paragraph> pList = new ArrayList<Data.Paragraph>();
 			pList = DeserializeData.iterableParagraphs(pStream);
-			
-			TopicModel tm = new TopicModel(sectionList, pList);
+			*/
+			TopicModel tm = new TopicModel(sectionList, paraList);
 			tm.modelTopics();
+			candidate = tm.getCandidate();
 			
 		} catch (FileNotFoundException | CborException e) {
 			// TODO Auto-generated catch block

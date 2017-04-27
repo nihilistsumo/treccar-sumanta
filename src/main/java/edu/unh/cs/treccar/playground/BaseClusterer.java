@@ -1,10 +1,13 @@
 package edu.unh.cs.treccar.playground;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Random;
 import java.util.regex.Pattern;
 
 import cc.mallet.cluster.Clustering;
@@ -27,6 +30,7 @@ import edu.unh.cs.treccar.Data;
 import edu.unh.cs.treccar.read_data.DeserializeData;
 
 public class BaseClusterer {
+	public int clusterNum = MeasurePerformanceMain.CLUSTERNUMBER;
 	private String paraPath;
 	private ArrayList<Data.Paragraph> paraList;
 	public BaseClusterer(String paraPath) throws FileNotFoundException, CborException{
@@ -61,6 +65,60 @@ public class BaseClusterer {
 			labelIndex++;
 		}
 		return finalClusterData;
+	}
+	public HashMap<String, ArrayList<String>> getBaselineAllInOne(int numClusters){
+		HashMap<String, ArrayList<String>> cluster = new HashMap<String, ArrayList<String>>();
+		Random rand = new Random();
+		int assignedCluster = rand.nextInt(numClusters);
+		for(int i=0; i<numClusters; i++){
+			String clusterLabel = "Cluster"+i;
+			ArrayList<String> paraIDList = new ArrayList<String>();
+			if(i==assignedCluster){
+				for(Data.Paragraph p : this.paraList){
+					paraIDList.add(p.getParaId());
+				}
+			}
+			cluster.put(clusterLabel, paraIDList);
+		}
+		return cluster;
+	}
+	public HashMap<String, ArrayList<String>> getBaselineAllCorrect(){
+		HashMap<String, ArrayList<String>> cluster = new HashMap<String, ArrayList<String>>();
+		BufferedReader br;
+		try{
+			br = new BufferedReader(new FileReader(MeasurePerformance.GTFILE));
+			String line;
+			String[] lineData = new String[4];
+			while((line = br.readLine()) != null){
+				lineData = line.split(" ");
+				if(cluster.containsKey(lineData[0])){
+					cluster.get(lineData[0]).add(lineData[2]);
+				} else{
+					ArrayList<String> paraList = new ArrayList<String>();
+					paraList.add(lineData[2]);
+					cluster.put(lineData[0], paraList);
+				}
+				
+			}
+			br.close();
+		} catch (Exception e){
+			e.printStackTrace();
+		}
+		return cluster;
+	}
+	public HashMap<String, ArrayList<String>> getBaselineRandom(int numClusters){
+		HashMap<String, ArrayList<String>> cluster = new HashMap<String, ArrayList<String>>();
+		Random rand = new Random();
+		for(int i=0; i<numClusters; i++){
+			String clusterLabel = "Cluster"+i;
+			ArrayList<String> paraList = new ArrayList<String>();
+			cluster.put(clusterLabel, paraList);
+		}
+		for(Data.Paragraph para : this.paraList){
+			String randomLabel = "Cluster"+rand.nextInt(numClusters);
+			cluster.get(randomLabel).add(para.getParaId());
+		}
+		return cluster;
 	}
 	public static Pipe buildPipe(){
 		ArrayList pipeList = new ArrayList();

@@ -30,6 +30,7 @@ import edu.unh.cs.treccar.Data;
 import edu.unh.cs.treccar.playground.AssignParagraphs.SectionPathID;
 
 public class TopicModel {
+	public int topicNum = MeasurePerformanceMain.TOPICNUMBER;
 	private ArrayList<AssignParagraphs.SectionPathID> sectionList;
 	private Iterable<Data.Paragraph> paraList;
 	private HashMap<AssignParagraphs.SectionPathID, ArrayList<Data.Paragraph>> candidate = new HashMap<AssignParagraphs.SectionPathID, ArrayList<Data.Paragraph>>();
@@ -50,7 +51,7 @@ public class TopicModel {
 			listOfParagraphs.add(para);
 		}
 		iList.addThruPipe(rawInstanceList.iterator());
-		int numTopics = 100;
+		int numTopics = this.topicNum;
 		ParallelTopicModel model = new ParallelTopicModel(numTopics, 1.0, 0.01);
 		model.addInstances(iList);
 		model.setNumThreads(2);

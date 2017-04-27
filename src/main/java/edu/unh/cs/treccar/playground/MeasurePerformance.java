@@ -8,7 +8,7 @@ import java.util.HashMap;
 import edu.unh.cs.treccar.Data;
 
 public class MeasurePerformance {
-	private static String GTFILE, OUTLINEFILE, PARAFILE;
+	static String GTFILE, OUTLINEFILE, PARAFILE;
 	// In groundTruth we map sectionID to list of paraIDs from the ground truth file
 	private HashMap<String, ArrayList<String>> groundTruth = new HashMap<String, ArrayList<String>>();
 	private HashMap<AssignParagraphs.SectionPathID, ArrayList<Data.Paragraph>> candidateAssign = new HashMap<AssignParagraphs.SectionPathID, ArrayList<Data.Paragraph>>();

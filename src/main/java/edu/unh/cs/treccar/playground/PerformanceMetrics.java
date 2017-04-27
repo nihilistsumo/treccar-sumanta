@@ -1,6 +1,7 @@
 package edu.unh.cs.treccar.playground;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 
 import edu.unh.cs.treccar.Data;
@@ -53,6 +54,11 @@ public class PerformanceMetrics {
 		resultString = "Hit: "+hit;
 		return resultString;
 	}
+	private double getPrecisionScore(){
+		double score=0.0, tempTotal=0.0;
+		
+		return score;
+	}
 	public String calculateRandIndex(){
 		HashMap<AssignParagraphs.SectionPathID, ArrayList<Data.Paragraph>> candidate = this.candidateAssign;
 		HashMap<String, ArrayList<String>> candidateClusters = new HashMap<String, ArrayList<String>>();
@@ -66,43 +72,6 @@ public class PerformanceMetrics {
 		}
 		String resultString = calculateRandIndex(candidateClusters);
 		return resultString;
-		/*
-		String resultString = "";
-		HashMap<String, ArrayList<String>> correct = this.groundTruth;
-		HashMap<AssignParagraphs.SectionPathID, ArrayList<Data.Paragraph>> candidate = this.candidateAssign;
-		String[] correctSections = new String[correct.size()];
-		AssignParagraphs.SectionPathID[] candSections = new AssignParagraphs.SectionPathID[candidate.size()];
-		correct.keySet().toArray(correctSections);
-		candidate.keySet().toArray(candSections);
-		
-		int[][] contingencyMatrix = new int[correct.size()][candidate.size()];
-		double randIndex = 0.0;
-		ArrayList<String> correctParas = new ArrayList<String>();
-		ArrayList<Data.Paragraph> candParas = new ArrayList<Data.Paragraph>();
-		for(int i=0; i<correct.size(); i++){
-			for(int j=0; j<candidate.size(); j++){
-				int matchCount = 0;
-				correctParas = correct.get(correctSections[i]);
-				candParas = candidate.get(candSections[j]);
-				if(correctParas == null){
-					System.out.println("We have null in correctParas!");
-				} else if(candParas != null){
-					for(Data.Paragraph candPara : candParas){
-						if(correctParas.contains(candPara.getParaId())){
-							matchCount++;
-						}
-					}
-				}
-				contingencyMatrix[i][j] = matchCount;
-			}
-		}
-		printContingencyMatrix(contingencyMatrix);
-		if((new Double(this.computeRand(contingencyMatrix))).isNaN())
-			resultString = "Adjusted Rand index could not be computed!";
-		else
-			resultString = "Calculated RAND index: "+this.computeRand(contingencyMatrix);
-		return resultString;
-		*/
 	}
 	public String calculateRandIndex(HashMap<String, ArrayList<String>> candidateClusters){
 		//candidateClusters will be map between cluster labels and cluster of para IDs
@@ -141,6 +110,47 @@ public class PerformanceMetrics {
 		else
 			resultString = "Calculated RAND index: "+this.computeRand(contingencyMatrix);
 		return resultString;
+	}
+	public String calculatePurity(){
+		String result = "";
+		HashMap<AssignParagraphs.SectionPathID, ArrayList<Data.Paragraph>> candidate = this.candidateAssign;
+		HashMap<String, ArrayList<String>> candidateClusters = new HashMap<String, ArrayList<String>>();
+		for(AssignParagraphs.SectionPathID secPathID : candidate.keySet()){
+			String clusterLabel = secPathID.getSectionPathID();
+			ArrayList<String> cluster = new ArrayList<String>();
+			for(Data.Paragraph p : candidate.get(secPathID)){
+				cluster.add(p.getParaId());
+			}
+			candidateClusters.put(clusterLabel, cluster);
+		}
+		return calculatePurity(candidateClusters);
+	}
+	public String calculatePurity(HashMap<String, ArrayList<String>> candidateClusters){
+		String result = "";
+		int n=0, sum=0;
+		double score=0.0;
+		//revGT maps paraid to secid
+		HashMap<String, String> revGT = this.reverseGT(this.groundTruth);
+		for(String label:candidateClusters.keySet()){
+			ArrayList<String> currCluster = candidateClusters.get(label);
+			n+=currCluster.size();
+			HashMap<String, Integer> classCount = new HashMap<String, Integer>();
+			String secID = "";
+			for(String paraID:currCluster){
+				secID = revGT.get(paraID);
+				if(classCount.keySet().contains(secID)){
+					classCount.put(secID, classCount.get(secID)+1);
+				} else{
+					classCount.put(secID, 1);
+				}
+			}
+			if(classCount.values().size()>0)
+				sum+=Collections.max(classCount.values());
+		}
+		System.out.println("Sum = "+sum+", n = "+n);
+		score = ((double)sum)/n;
+		result = "Purity score is: "+score;
+		return result;
 	}
 	private double computeRand(int[][] contMat){
 		double score = 0.0;
@@ -196,5 +206,14 @@ public class PerformanceMetrics {
 			}
 			System.out.println();
 		}
+	}
+	private HashMap<String, String> reverseGT(HashMap<String, ArrayList<String>> gt){
+		HashMap<String, String> reverseGT = new HashMap<String, String>();
+		for(String sectionID : gt.keySet()){
+			for(String paraID : gt.get(sectionID)){
+				reverseGT.put(paraID, sectionID);
+			}
+		}
+		return reverseGT;
 	}
 }
